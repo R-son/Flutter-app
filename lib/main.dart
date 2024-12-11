@@ -1,125 +1,247 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'add.dart';
+import 'categories.dart';
+
+const String addr = "192.168.1.58";
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
-
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
+        primaryColor: Color(0xFF2F70AF),
+        colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Color(0xFF806491)),
+        textTheme: TextTheme(
+          displayLarge: TextStyle(
+              fontFamily: 'Fira Sans',
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.black),
+          bodyLarge: TextStyle(fontFamily: 'Numans', fontSize: 16, color: Colors.black),
+        ),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: HomePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
+class HomePage extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _HomePageState createState() => _HomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _HomePageState extends State<HomePage> {
+  List<dynamic> topItems = [];
+  List<dynamic> searchResults = [];
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  @override
+  void initState() {
+    super.initState();
+    fetchTopRatedItems();
+  }
+
+  Future<void> fetchTopRatedItems() async {
+    try {
+      final response = await http.get(Uri.parse('http://$addr:3000/top-rated'));
+      if (response.statusCode == 200 && response.body != null) {
+        setState(() {
+          topItems = json.decode(response.body);
+        });
+      } else {
+        debugPrint("Fetch top item response : ${json.decode(response.body)}");
+        throw Exception('Failed to load top-rated items');
+      }
+    } catch (error) {
+      debugPrint('$error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading top-rated items: $error')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: Text("Hobs", style: Theme.of(context).textTheme.displayLarge),
+        backgroundColor: Color(0xFF2F70AF),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+      body: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    // Search Bar
+    Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: SearchBar(onResults: (results) {
+        setState(() {
+          searchResults = results;
+        });
+      }),
+    ),
+
+    // Top 5 Items Section
+    if (topItems.isNotEmpty)
+      Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text("Top 5 Items", style: Theme.of(context).textTheme.displayLarge),
+      ),
+    if (topItems.isNotEmpty)
+      SizedBox(
+        height: 250, // Fixed height for the PageView
+        child: PageView.builder(
+          controller: PageController(viewportFraction: 0.8),
+          itemCount: topItems.length,
+          itemBuilder: (context, index) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: TopItemCard(item: topItems[index]),
+            );
+          },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+
+    // Search Results Section
+    if (searchResults.isNotEmpty)
+      Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Text("Search Results", style: Theme.of(context).textTheme.displayLarge),
+      ),
+    if (searchResults.isNotEmpty)
+      Expanded(
+        child: ListView.builder(
+          itemCount: searchResults.length,
+          itemBuilder: (context, index) {
+            final item = searchResults[index];
+            return ListTile(
+              title: Text(item['name']),
+              subtitle: Text(item['description']),
+              trailing: Text("Rating: ${item['rating']}"),
+            );
+          },
+        ),
+      ),
+    if (topItems.isEmpty && searchResults.isEmpty)
+      Expanded(child: Center(child: CircularProgressIndicator())),
+  ],
+),
+
+      bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Color(0xFF806491),
+        unselectedItemColor: Colors.grey,
+        currentIndex: 0, // Set the default selected tab
+        onTap: (index) {
+          if (index == 1) {
+            // Navigate to Categories
+            Navigator.push(context, MaterialPageRoute(builder: (context) => CategoriesScreen()));
+          } else if (index == 2) {
+            // Navigate to Add Item
+            Navigator.push(context, MaterialPageRoute(builder: (context) => AddItemScreen()));
+          }
+        },
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+          BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
+          BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Add Item'),
+        ],
+      ),
+
     );
   }
 }
+
+class TopItemCard extends StatelessWidget {
+  final dynamic item;
+
+  TopItemCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.symmetric(horizontal: 8),
+      color: Color(0xFFB9848C),
+      child: Container(
+        width: 200,
+        height: 200,
+        child: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                item['name'],
+                style: Theme.of(context).textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 0.5),
+              Text(
+                "Rating: ${item['rating'].toStringAsFixed(1)}",
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class SearchBar extends StatefulWidget {
+  final Function(List<dynamic>) onResults;
+
+  SearchBar({required this.onResults});
+
+  @override
+  _SearchBarState createState() => _SearchBarState();
+}
+
+class _SearchBarState extends State<SearchBar> {
+  final TextEditingController _controller = TextEditingController();
+
+  Future<void> _performSearch(String query) async {
+    if (query.isEmpty) {
+      widget.onResults([]);
+      return;
+    }
+
+    try {
+      final response = await http.get(Uri.parse('http://$addr:3000/search?query=$query'));
+      if (response.statusCode == 200) {
+        final results = json.decode(response.body);
+        widget.onResults(results);
+      } else {
+        throw Exception('Failed to search');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error performing search: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: _controller,
+      onChanged: _performSearch,
+      decoration: InputDecoration(
+        hintText: "Search for a leisure activity...",
+        hintStyle: TextStyle(color: Colors.grey),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+        prefixIcon: Icon(Icons.search, color: Color(0xFF2F70AF)),
+      ),
+    );
+  }
+}
+
