@@ -50,8 +50,10 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchTopRatedItems() async {
     try {
       final response = await http.get(Uri.parse('http://$addr:3000/top-rated'));
+      debugPrint("Return status : ${response.statusCode}");
       if (response.statusCode == 200 && response.body != null) {
         setState(() {
+          debugPrint(response.body);
           topItems = json.decode(response.body);
         });
       } else {
@@ -59,7 +61,7 @@ class _HomePageState extends State<HomePage> {
         throw Exception('Failed to load top-rated items');
       }
     } catch (error) {
-      debugPrint('$error');
+      debugPrint('Error $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading top-rated items: $error')),
       );
