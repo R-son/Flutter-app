@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'add.dart';
-import 'categories.dart';
-import 'manage_categories.dart';
+import 'models/item.dart';
+import 'models/category.dart';
+import 'services/api_service.dart';
+import 'views/add_item_view.dart';
+import 'views/category_list_view.dart';
 
-const String addr = "192.168.1.58";
+const String addr = "127.0.0.1";
 
 void main() {
   runApp(MyApp());
@@ -18,395 +18,409 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: Color(0xFF2F70AF),
-        colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Color(0xFF806491)),
+        colorScheme:
+            ColorScheme.fromSwatch().copyWith(secondary: Color(0xFF806491)),
         scaffoldBackgroundColor: Color(0xFF806491),
         textTheme: TextTheme(
           displayLarge: TextStyle(
               fontFamily: 'Fira Sans',
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Colors.black),
-          bodyLarge: TextStyle(fontFamily: 'Numans', fontSize: 16, color: Colors.black),
+              color: Colors.white),
+          bodyLarge: TextStyle(
+              fontFamily: 'Numans', fontSize: 16, color: Colors.black),
         ),
       ),
-      home: HomePage(),
+      home: ItemListView(),
     );
   }
 }
 
-class HomePage extends StatefulWidget {
+class ItemListView extends StatefulWidget {
   @override
-  _HomePageState createState() => _HomePageState();
+  _ItemListViewState createState() => _ItemListViewState();
 }
 
-class _HomePageState extends State<HomePage> {
-  List<dynamic> topItems = [];
-  List<dynamic> searchResults = [];
-  List<dynamic> allItems = [];
+class _ItemListViewState extends State<ItemListView> {
+  List<Item> items = [];
+  List<Category> categories = [];
+  List<Item> topRatedItems = [];
+  List<Item> filteredItems = [];
+  String filter = 'Nom'; // Default sorting filter
+  bool isLoading = true;
+  String searchQuery = ''; // Track search input
+  String? selectedCategory; // Selected category for filtering
 
-@override
-void initState() {
-  super.initState();
-  fetchTopRatedItems();
-  fetchAllItems();
-}
-
-  Future<void> fetchTopRatedItems() async {
-    try {
-      final response = await http.get(Uri.parse('http://$addr:3000/top-rated'));
-      // debugPrint("Return status : ${response.statusCode}");
-      if (response.statusCode == 200 && response.body != null) {
-        setState(() {
-          // debugPrint(response.body);
-          topItems = json.decode(response.body);
-        });
-      } else {
-        debugPrint("Fetch top item response : ${json.decode(response.body)}");
-        throw Exception('Failed to load top-rated items');
-      }
-    } catch (error) {
-      debugPrint('Error $error');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading top-rated items: $error')),
-      );
-    }
+  @override
+  void initState() {
+    super.initState();
+    fetchAllItems();
+    fetchTopRatedItems();
+    fetchCategories();
   }
 
   Future<void> fetchAllItems() async {
     try {
-      final response = await http.get(Uri.parse('http://$addr:3000/items'));
-      // debugPrint("RESPONSE : ${response.body}");
-      if (response.statusCode == 200 && response.body != null) {
-        final items = json.decode(response.body);
-        // debugPrint("TEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEST");
-        setState(() {
-          allItems = items
-            ..sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));  // Ensure both are strings
-        });
-      } else {
-        throw Exception('Failed to load all items');
-      }
-    } catch (error) {
-      // debugPrint("ERROR STATEMENT : ${error}");
+      final fetchedItems = await ApiService.fetchItems();
+      setState(() {
+        items = fetchedItems;
+        filteredItems = fetchedItems; // Initialize filtered items
+        isLoading = false;
+      });
+      print("Fetched items: ${items.length}");
+    } catch (e) {
+      setState(() {
+        isLoading = false;
+      });
+      print("Error fetching items: $e");
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading all items: $error')),
+        SnackBar(content: Text('Erreur lors du chargement des éléments : $e')),
       );
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text("Hobs", style: Theme.of(context).textTheme.displayLarge),
-        backgroundColor: Color(0xFF2F70AF),
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: SearchBar(onResults: (results) {
-              setState(() {
-                searchResults = results;
-              });
-            }),
-          ),
-
-          // Top 5 Items Section
-          if (topItems.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text("Top 5 Items", style: Theme.of(context).textTheme.displayLarge),
-            ),
-          if (topItems.isNotEmpty)
-            SizedBox(
-              height: 250,
-              child: PageView.builder(
-                controller: PageController(viewportFraction: 0.8),
-                itemCount: topItems.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: TopItemCard(item: topItems[index]),
-                  );
-                },
-              ),
-            ),
-
-          // Search Results Section
-          if (searchResults.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text("Search Results", style: Theme.of(context).textTheme.displayLarge),
-            ),
-          if (searchResults.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: searchResults.length,
-                itemBuilder: (context, index) {
-                  final item = searchResults[index];
-                  return ListTile(
-                    title: Text(item['name']),
-                    subtitle: Text(item['description']),
-                    trailing: Text("Rating: ${item['rating']}"),
-                  );
-                },
-              ),
-            ),
-
-          if (searchResults.isEmpty && allItems.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: allItems.length,
-                itemBuilder: (context, index) {
-                  final item = allItems[index];
-                  return ListTile(
-                    title: Text(item['name']),
-                    subtitle: Text(item['description']),
-                    trailing: Text("Rating: ${item['rating'].toStringAsFixed(1)}"),
-                    onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => RateItemDialog(
-                          itemId: item['id'],
-                          itemName: item['name'],
-                          onRatingSubmitted: (newRating) {
-                            setState(() {
-                              item['rating'] = newRating;
-                            });
-                          },
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-        ],
-      ),
-
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Color(0xFF806491),
-        unselectedItemColor: Colors.grey,
-        currentIndex: 0, // Set the default selected tab
-        onTap: (index) {
-          if (index == 1) {
-            // Navigate to Categories
-            Navigator.push(context, MaterialPageRoute(builder: (context) => CategoriesScreen()));
-          } else if (index == 2) {
-            // Navigate to Add Item
-            Navigator.push(context, MaterialPageRoute(builder: (context) => AddItemScreen()));
-          } else if (index == 3) {
-            // Navigate to Manage Categories
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ManageCategoriesScreen()));
-          }
-        },
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
-          BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Add Item'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Manage Categories'),
-        ],
-      ),
-    );
+  Future<void> fetchTopRatedItems() async {
+    try {
+      final fetchedTopRated = await ApiService.fetchTopRated();
+      setState(() {
+        topRatedItems = fetchedTopRated;
+      });
+      print("Fetched top-rated items: ${topRatedItems.length}");
+    } catch (e) {
+      print("Error fetching top-rated items: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du chargement des tendances : $e')),
+      );
+    }
   }
-}
 
-class TopItemCard extends StatelessWidget {
-  final dynamic item;
-
-  TopItemCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 8),
-      color: Color(0xFFB9848C),
-      child: Container(
-        width: 200,
-        height: 250,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Expanded(
-              child: () {
-                debugPrint('http://$addr:3000${item['image']}'); // Debug print the image URL
-                return item['image'] != null
-                    ? Image.network(
-                        'http://$addr:3000${item['image']}',
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                      )
-                    : Center(child: Text('No Image'));
-              }(),
-            ),
-            // Expanded(
-            //   child: item['image'] != null
-            //       ? Image.network(
-            //           'http://$addr${item['image']}',
-            //           fit: BoxFit.cover,
-            //           width: double.infinity,
-            //         )
-            //       : Center(child: Text('No Image')),
-            // ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                children: [
-                  Text(
-                    item['name'],
-                    style: Theme.of(context).textTheme.bodyLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    "Rating: ${item['rating'].toStringAsFixed(1)}",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> fetchCategories() async {
+    try {
+      final fetchedCategories = await ApiService.fetchCategories();
+      setState(() {
+        categories = fetchedCategories;
+      });
+      print("Fetched categories: ${categories.map((c) => c.name).toList()}");
+    } catch (e) {
+      print("Error fetching categories: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Erreur lors du chargement des catégories : $e')),
+      );
+    }
   }
-}
 
-class SearchBar extends StatefulWidget {
-  final Function(List<dynamic>) onResults;
+  void filterItems(String query) {
+    setState(() {
+      searchQuery = query; // Update search query
+    });
 
-  SearchBar({required this.onResults});
+    final filtered = items.where((item) {
+      final itemName = item.name.toLowerCase();
+      final input = query.toLowerCase();
+      return itemName.contains(input);
+    }).toList();
 
-  @override
-  _SearchBarState createState() => _SearchBarState();
-}
+    setState(() {
+      filteredItems = filtered;
+    });
+    print("Filtered items count: ${filteredItems.length}");
+  }
 
-class _SearchBarState extends State<SearchBar> {
-  final TextEditingController _controller = TextEditingController();
+  void applySorting(String filter) {
+    setState(() {
+      this.filter = filter;
+      if (filter == 'Nom') {
+        filteredItems.sort((a, b) => a.name.compareTo(b.name));
+      } else if (filter == 'Note') {
+        filteredItems.sort((a, b) => b.rating.compareTo(a.rating));
+      }
+    });
+    print("Applied sorting: $filter");
+  }
 
-  Future<void> _performSearch(String query) async {
-    if (query.isEmpty) {
-      widget.onResults([]);
+  void applyCategoryFilter(String? categoryName) {
+    if (categoryName == null || categoryName.isEmpty) {
+      setState(() {
+        selectedCategory = null;
+        filteredItems = items; // Show all items if no category is selected
+      });
+      print("Cleared category filter, showing all items.");
       return;
     }
 
-    try {
-      final response = await http.get(Uri.parse('http://$addr:3000/search?query=$query'));
-      if (response.statusCode == 200) {
-        final results = json.decode(response.body);
-        widget.onResults(results);
-      } else {
-        throw Exception('Failed to search');
-      }
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error performing search: $error')),
-      );
-    }
+    setState(() {
+      selectedCategory = categoryName;
+      filteredItems = items
+          .where((item) =>
+              item.category?.toLowerCase() == categoryName.toLowerCase())
+          .toList();
+    });
+    print(
+        "Filtered items by category: $categoryName, count: ${filteredItems.length}");
   }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: _controller,
-      onChanged: _performSearch,
-      decoration: InputDecoration(
-        hintText: "Search for a leisure activity...",
-        hintStyle: TextStyle(color: Colors.grey),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-        prefixIcon: Icon(Icons.search, color: Color(0xFF2F70AF)),
-      ),
-    );
-  }
-}
+    final screenWidth = MediaQuery.of(context).size.width;
 
-class RateItemDialog extends StatefulWidget {
-  final int itemId;
-  final String itemName;
-  final Function(double) onRatingSubmitted;
-
-  RateItemDialog({required this.itemId, required this.itemName, required this.onRatingSubmitted});
-
-  @override
-  _RateItemDialogState createState() => _RateItemDialogState();
-}
-
-class _RateItemDialogState extends State<RateItemDialog> {
-  double userRating = 0.0;
-
-  Future<void> submitRating() async {
-    try {
-      final response = await http.post(
-        Uri.parse('http://$addr:3000/update-rating'),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({
-          "id": widget.itemId,
-          "userRating": userRating,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rating submitted successfully!')),
-        );
-        widget.onRatingSubmitted(data['newRating']);
-        Navigator.of(context).pop();
-      } else {
-        debugPrint(response.body);
-        throw Exception('Failed to submit rating');
-      }
-    } catch (error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error submitting rating: $error')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text("Rate ${widget.itemName}"),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text("Select your rating:"),
-          Slider(
-            value: userRating,
-            min: 0,
-            max: 5,
-            divisions: 10,
-            label: userRating.toString(),
-            onChanged: (value) => setState(() => userRating = value),
+    return Scaffold(
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(170), // Custom AppBar height
+        child: AppBar(
+          backgroundColor: Color(0xFF2F70AF),
+          flexibleSpace: Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title and sort dropdown
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Hobs",
+                      style: Theme.of(context).textTheme.displayLarge,
+                    ),
+                    DropdownButton<String>(
+                      value: filter,
+                      icon: Icon(Icons.filter_list, color: Colors.white),
+                      dropdownColor: Color(0xFF2F70AF),
+                      items: ['Nom', 'Note']
+                          .map((value) => DropdownMenuItem(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        if (value != null) applySorting(value);
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                // Search bar
+                TextField(
+                  onChanged: filterItems,
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Recherche...',
+                    hintStyle: TextStyle(color: Colors.white70),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white.withOpacity(0.2),
+                    prefixIcon: Icon(Icons.search, color: Colors.white70),
+                  ),
+                ),
+                SizedBox(height: 8),
+                // Category dropdown
+                DropdownButton<String>(
+                  value: selectedCategory,
+                  hint: Text("Filtrer par catégorie",
+                      style: TextStyle(color: Colors.white)),
+                  icon: Icon(Icons.category, color: Colors.white),
+                  dropdownColor: Color(0xFF2F70AF),
+                  isExpanded: true,
+                  items: categories
+                      .map((category) => DropdownMenuItem(
+                            value: category.name,
+                            child: Text(
+                              category.name,
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ))
+                      .toList(),
+                  onChanged: (value) => applyCategoryFilter(value),
+                ),
+              ],
+            ),
           ),
+        ),
+      ),
+      body: isLoading
+          ? Center(child: CircularProgressIndicator())
+          : ListView(
+              children: [
+                // Show top 5 only when search query is empty
+                if (searchQuery.isEmpty &&
+                    selectedCategory == null &&
+                    topRatedItems.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      "Top 5 Tendances",
+                      style: Theme.of(context).textTheme.displayLarge,
+                    ),
+                  ),
+                if (searchQuery.isEmpty &&
+                    selectedCategory == null &&
+                    topRatedItems.isNotEmpty)
+                  Container(
+                    height: 250, // Fixed height for horizontal list
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: topRatedItems.length,
+                      itemBuilder: (context, index) {
+                        final item = topRatedItems[index];
+                        return Container(
+                          width: screenWidth * 0.6, // Responsive card width
+                          margin: EdgeInsets.symmetric(horizontal: 8.0),
+                          child: Card(
+                            color: Color(0xFFB9848C),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Responsive image
+                                  item.image != null
+                                      ? Center(
+                                          child: Image.network(
+                                            'http://${addr}:3000${item.image}',
+                                            width: double.infinity,
+                                            height: 120,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        )
+                                      : Center(
+                                          child: Icon(
+                                            Icons.image_not_supported,
+                                            size: 80,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                  SizedBox(height: 8),
+                                  // Display item name
+                                  Text(
+                                    item.name,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  SizedBox(height: 4),
+                                  // Display rating
+                                  Text(
+                                    'Note : ${item.rating.toStringAsFixed(1)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                // Display filtered items
+                if (filteredItems.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        'Pas d\'éléments trouvés',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
+                    ),
+                  ),
+                ...filteredItems.map((item) {
+                  return Card(
+                    color: Color(0xFFB9848C),
+                    margin: EdgeInsets.symmetric(
+                      vertical: 8.0,
+                      horizontal: screenWidth * 0.05,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Responsive image
+                          item.image != null
+                              ? Center(
+                                  child: Image.network(
+                                    'http://${addr}:3000${item.image}',
+                                    width: screenWidth * 0.9,
+                                    height: screenWidth * 0.5,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Center(
+                                  child: Icon(
+                                    Icons.image_not_supported,
+                                    size: screenWidth * 0.25,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                          SizedBox(height: 16),
+                          Text(
+                            item.name,
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.05,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            item.description,
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.04,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Note : ${item.rating.toStringAsFixed(1)}',
+                            style: TextStyle(
+                              fontSize: screenWidth * 0.04,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+      bottomNavigationBar: BottomNavigationBar(
+        selectedItemColor: Color(0xFF806491),
+        unselectedItemColor: Colors.grey,
+        currentIndex: 0, // Default selected tab
+        onTap: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CategoryListView()),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => AddItemView()),
+            ).then((_) => fetchAllItems());
+          }
+        },
+        items: [
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Accueil'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.category), label: 'Catégories'),
+          BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Ajouter'),
         ],
       ),
-      actions: [
-        TextButton(
-          child: Text("Cancel"),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        TextButton(
-          child: Text("Submit"),
-          onPressed: () {
-            if (userRating > 0) {
-              submitRating();
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Please select a rating before submitting.')),
-              );
-            }
-          },
-        ),
-      ],
     );
   }
 }
