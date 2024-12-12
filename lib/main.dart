@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'add.dart';
 import 'categories.dart';
+import 'manage_categories.dart';
 
 const String addr = "192.168.1.58";
 
@@ -18,6 +19,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primaryColor: Color(0xFF2F70AF),
         colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Color(0xFF806491)),
+        scaffoldBackgroundColor: Color(0xFF806491),
         textTheme: TextTheme(
           displayLarge: TextStyle(
               fontFamily: 'Fira Sans',
@@ -40,20 +42,23 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   List<dynamic> topItems = [];
   List<dynamic> searchResults = [];
+  List<dynamic> allItems = [];
 
-  @override
-  void initState() {
-    super.initState();
-    fetchTopRatedItems();
-  }
+@override
+void initState() {
+  super.initState();
+  fetchTopRatedItems();
+  fetchAllItems();
+}
+
 
   Future<void> fetchTopRatedItems() async {
     try {
       final response = await http.get(Uri.parse('http://$addr:3000/top-rated'));
-      debugPrint("Return status : ${response.statusCode}");
+      // debugPrint("Return status : ${response.statusCode}");
       if (response.statusCode == 200 && response.body != null) {
         setState(() {
-          debugPrint(response.body);
+          // debugPrint(response.body);
           topItems = json.decode(response.body);
         });
       } else {
@@ -68,6 +73,24 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> fetchAllItems() async {
+    try {
+      final response = await http.get(Uri.parse('http://$addr:3000/items'));
+      if (response.statusCode == 200 && response.body != null) {
+        final items = json.decode(response.body);
+        setState(() {
+          allItems = items..sort((a, b) => a['name'].compareTo(b['name']));
+        });
+      } else {
+        throw Exception('Failed to load all items');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading all items: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -76,63 +99,106 @@ class _HomePageState extends State<HomePage> {
         backgroundColor: Color(0xFF2F70AF),
       ),
       body: Column(
-  crossAxisAlignment: CrossAxisAlignment.start,
-  children: [
-    // Search Bar
-    Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: SearchBar(onResults: (results) {
-        setState(() {
-          searchResults = results;
-        });
-      }),
-    ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SearchBar(onResults: (results) {
+              setState(() {
+                searchResults = results;
+              });
+            }),
+          ),
 
-    // Top 5 Items Section
-    if (topItems.isNotEmpty)
-      Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Text("Top 5 Items", style: Theme.of(context).textTheme.displayLarge),
-      ),
-    if (topItems.isNotEmpty)
-      SizedBox(
-        height: 250, // Fixed height for the PageView
-        child: PageView.builder(
-          controller: PageController(viewportFraction: 0.8),
-          itemCount: topItems.length,
-          itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: TopItemCard(item: topItems[index]),
-            );
-          },
-        ),
-      ),
+          // Top 5 Items Section
+          if (topItems.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text("Top 5 Items", style: Theme.of(context).textTheme.displayLarge),
+            ),
+          if (topItems.isNotEmpty)
+            SizedBox(
+              height: 250,
+              child: PageView.builder(
+                controller: PageController(viewportFraction: 0.8),
+                itemCount: topItems.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: TopItemCard(item: topItems[index]),
+                  );
+                },
+              ),
+            ),
 
-    // Search Results Section
-    if (searchResults.isNotEmpty)
-      Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Text("Search Results", style: Theme.of(context).textTheme.displayLarge),
+          // Search Results Section
+          if (searchResults.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text("Search Results", style: Theme.of(context).textTheme.displayLarge),
+            ),
+          if (searchResults.isNotEmpty)
+            Expanded(
+              child: ListView.builder(
+                itemCount: searchResults.length,
+                itemBuilder: (context, index) {
+                  final item = searchResults[index];
+                  return ListTile(
+                    title: Text(item['name']),
+                    subtitle: Text(item['description']),
+                    trailing: Text("Rating: ${item['rating']}"),
+                  );
+                },
+              ),
+            ),
+
+          // All Items Section (Displayed if No Search Results)
+          if (searchResults.isEmpty && allItems.isNotEmpty)
+            Expanded(
+              child: ListView.builder(
+                itemCount: allItems.length,
+                itemBuilder: (context, index) {
+                  final item = allItems[index];
+                  return ListTile(
+                    title: Text(item['name']),
+                    subtitle: Text(item['description']),
+                    trailing: Text("Rating: ${item['rating'].toStringAsFixed(1)}"),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => RateItemDialog(
+                          itemId: item['id'],
+                          itemName: item['name'],
+                          onRatingSubmitted: (newRating) {
+                            setState(() {
+                              item['rating'] = newRating;
+                            });
+                          },
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            )
+
+          if (searchResults.isEmpty && allItems.isNotEmpty)
+            Expanded(
+              child: ListView.builder(
+                itemCount: allItems.length,
+                itemBuilder: (context, index) {
+                  final item = allItems[index];
+                  return ListTile(
+                    title: Text(item['name']),
+                    subtitle: Text(item['description']),
+                    trailing: Text("Rating: ${item['rating']}"),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
-    if (searchResults.isNotEmpty)
-      Expanded(
-        child: ListView.builder(
-          itemCount: searchResults.length,
-          itemBuilder: (context, index) {
-            final item = searchResults[index];
-            return ListTile(
-              title: Text(item['name']),
-              subtitle: Text(item['description']),
-              trailing: Text("Rating: ${item['rating']}"),
-            );
-          },
-        ),
-      ),
-    if (topItems.isEmpty && searchResults.isEmpty)
-      Expanded(child: Center(child: CircularProgressIndicator())),
-  ],
-),
 
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Color(0xFF806491),
@@ -145,15 +211,18 @@ class _HomePageState extends State<HomePage> {
           } else if (index == 2) {
             // Navigate to Add Item
             Navigator.push(context, MaterialPageRoute(builder: (context) => AddItemScreen()));
+          } else if (index == 3) {
+            // Navigate to Manage Categories
+            Navigator.push(context, MaterialPageRoute(builder: (context) => ManageCategoriesScreen()));
           }
         },
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
           BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Add Item'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Manage Categories'),
         ],
       ),
-
     );
   }
 }
@@ -170,24 +239,49 @@ class TopItemCard extends StatelessWidget {
       color: Color(0xFFB9848C),
       child: Container(
         width: 200,
-        height: 200,
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                item['name'],
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
+        height: 250,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: () {
+                debugPrint('http://$addr:3000${item['image']}'); // Debug print the image URL
+                return item['image'] != null
+                    ? Image.network(
+                        'http://$addr:3000${item['image']}',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                      )
+                    : Center(child: Text('No Image'));
+              }(),
+            ),
+            // Expanded(
+            //   child: item['image'] != null
+            //       ? Image.network(
+            //           'http://$addr${item['image']}',
+            //           fit: BoxFit.cover,
+            //           width: double.infinity,
+            //         )
+            //       : Center(child: Text('No Image')),
+            // ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Text(
+                    item['name'],
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Rating: ${item['rating'].toStringAsFixed(1)}",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
               ),
-              SizedBox(height: 0.5),
-              Text(
-                "Rating: ${item['rating'].toStringAsFixed(1)}",
-                style: TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -246,4 +340,3 @@ class _SearchBarState extends State<SearchBar> {
     );
   }
 }
-

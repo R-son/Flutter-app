@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'edit.dart';
 
 const String addr = "192.168.1.58";
 
@@ -40,22 +41,45 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     }
   }
 
-  Future<void> fetchItems(String category) async {
+  Future<void> fetchItems(String? category) async {
+  try {
+    final response = category == "All Categories"
+        ? await http.get(Uri.parse('http://$addr:3000/items')) // Fetch all items
+        : await http.get(Uri.parse('http://$addr:3000/items?category=$category')); // Fetch items for a specific category
+
+    if (response.statusCode == 200) {
+      setState(() {
+        items = json.decode(response.body);
+      });
+    } else {
+      throw Exception('Failed to load items');
+    }
+  } catch (error) {
+    setState(() {
+      items = [];
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error loading items: $error')),
+    );
+  }
+}
+
+  Future<void> deleteItem(int itemId) async {
     try {
-      final response = await http.get(Uri.parse('http://$addr:3000/items?category=$category'));
+      final response = await http.delete(Uri.parse('http://$addr:3000/delete-item/$itemId'));
       if (response.statusCode == 200) {
-        setState(() {
-          items = json.decode(response.body);
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Item deleted successfully')),
+        );
+        if (selectedCategory != null) {
+          fetchItems(selectedCategory!); // Refresh the item list
+        }
       } else {
-        throw Exception('Failed to load items');
+        throw Exception('Failed to delete item');
       }
     } catch (error) {
-      setState(() {
-        items = [];
-      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading items: $error')),
+        SnackBar(content: Text('Error deleting item: $error')),
       );
     }
   }
@@ -99,9 +123,58 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       child: ListView.builder(
                         itemCount: items.length,
                         itemBuilder: (context, index) {
+                          final item = items[index];
                           return ListTile(
-                            title: Text(items[index]['name']),
-                            subtitle: Text("Rating: ${items[index]['rating'].toStringAsFixed(1)}"),
+                            title: Text(item['name']),
+                            subtitle: Text("Rating: ${item['rating'].toStringAsFixed(1)}"),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.edit, color: Colors.blue),
+                                  onPressed: () async {
+                                    final updated = await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => EditItemScreen(item: item),
+                                      ),
+                                    );
+                                    if (updated == true && selectedCategory != null) {
+                                      fetchItems(selectedCategory!); // Refresh items after update
+                                    }
+                                  },
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text("Delete Item"),
+                                          content: Text("Are you sure you want to delete '${item['name']}'?"),
+                                          actions: [
+                                            TextButton(
+                                              child: Text("Cancel"),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                            ),
+                                            TextButton(
+                                              child: Text("Delete"),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                                deleteItem(item['id']);
+                                              },
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
