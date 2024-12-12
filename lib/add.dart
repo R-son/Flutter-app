@@ -4,7 +4,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
-const String addr = "192.168.1.58";
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+String? addr = dotenv.env['URL'];
 
 class AddItemScreen extends StatefulWidget {
   @override
@@ -28,7 +30,8 @@ class _AddItemScreenState extends State<AddItemScreen> {
 
   Future<void> fetchCategories() async {
     try {
-      final response = await http.get(Uri.parse('http://${addr}:3000/categories'));
+      final response =
+          await http.get(Uri.parse('http://${addr}:3000/categories'));
       if (response.statusCode == 200) {
         setState(() {
           categories = json.decode(response.body);
@@ -106,25 +109,30 @@ class _AddItemScreenState extends State<AddItemScreen> {
                 DropdownButtonFormField<String>(
                   decoration: InputDecoration(labelText: "Category"),
                   value: category,
-                  items: categories.map<DropdownMenuItem<String>>((dynamic category) {
+                  items: categories
+                      .map<DropdownMenuItem<String>>((dynamic category) {
                     return DropdownMenuItem<String>(
                       value: category['name'],
                       child: Text(category['name']),
                     );
                   }).toList(),
                   onChanged: (value) => setState(() => category = value),
-                  validator: (value) => value == null || value.isEmpty ? "Category is required" : null,
+                  validator: (value) => value == null || value.isEmpty
+                      ? "Category is required"
+                      : null,
                   hint: Text("Select a category"),
                 ),
                 TextFormField(
                   decoration: InputDecoration(labelText: "Name"),
                   onChanged: (value) => name = value,
-                  validator: (value) => value!.isEmpty ? "Name is required" : null,
+                  validator: (value) =>
+                      value!.isEmpty ? "Name is required" : null,
                 ),
                 TextFormField(
                   decoration: InputDecoration(labelText: "Description"),
                   onChanged: (value) => description = value,
-                  validator: (value) => value!.isEmpty ? "Description is required" : null,
+                  validator: (value) =>
+                      value!.isEmpty ? "Description is required" : null,
                 ),
                 Slider(
                   value: rating,

@@ -3,10 +3,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'add.dart';
 import 'categories.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-const String addr = "192.168.0.23";
+String? addr = dotenv.env['URL'];
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(MyApp());
 }
 

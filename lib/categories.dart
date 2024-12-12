@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-const String addr = "192.168.1.58";
+String? addr = dotenv.env['URL'];
 
 class CategoriesScreen extends StatefulWidget {
   @override
@@ -22,7 +23,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Future<void> fetchCategories() async {
     try {
-      final response = await http.get(Uri.parse('http://$addr:3000/categories'));
+      final response =
+          await http.get(Uri.parse('http://$addr:3000/categories'));
       if (response.statusCode == 200) {
         setState(() {
           categories = json.decode(response.body);
@@ -42,7 +44,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Future<void> fetchItems(String category) async {
     try {
-      final response = await http.get(Uri.parse('http://$addr:3000/items?category=$category'));
+      final response = await http
+          .get(Uri.parse('http://$addr:3000/items?category=$category'));
       if (response.statusCode == 200) {
         setState(() {
           items = json.decode(response.body);
@@ -101,13 +104,16 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         itemBuilder: (context, index) {
                           return ListTile(
                             title: Text(items[index]['name']),
-                            subtitle: Text("Rating: ${items[index]['rating'].toStringAsFixed(1)}"),
+                            subtitle: Text(
+                                "Rating: ${items[index]['rating'].toStringAsFixed(1)}"),
                           );
                         },
                       ),
                     ),
                   if (items.isEmpty && selectedCategory != null)
-                    Center(child: Text("No items found for the selected category.")),
+                    Center(
+                        child:
+                            Text("No items found for the selected category.")),
                 ],
               ),
             ),
