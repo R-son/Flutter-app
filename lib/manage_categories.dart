@@ -11,6 +11,9 @@ class ManageCategoriesScreen extends StatefulWidget {
 
 class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   List<dynamic> categories = [];
+  final _categoryNameController = TextEditingController();
+  final _updateCategoryNameController = TextEditingController();
+  int? _selectedCategoryId;
 
   @override
   void initState() {
@@ -31,6 +34,65 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     } catch (error) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading categories: $error')),
+      );
+    }
+  }
+
+  Future<void> addCategory() async {
+    final categoryName = _categoryNameController.text;
+
+    if (categoryName.isEmpty) {
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://$addr:3000/add-category'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': categoryName}),
+      );
+
+      if (response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Category added successfully')),
+        );
+        _categoryNameController.clear();
+        fetchCategories();
+      } else {
+        throw Exception('Failed to add category');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error adding category: $error')),
+      );
+    }
+  }
+
+  Future<void> updateCategory() async {
+    if (_selectedCategoryId == null || _updateCategoryNameController.text.isEmpty) {
+      return;
+    }
+
+    try {
+      final response = await http.put(
+        Uri.parse('http://$addr:3000/update-category/$_selectedCategoryId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'name': _updateCategoryNameController.text}),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Category updated successfully')),
+        );
+        _updateCategoryNameController.clear();
+        _selectedCategoryId = null;
+        fetchCategories();
+      } else {
+        throw Exception('Failed to update category');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error updating category: $error')),
       );
     }
   }
@@ -60,20 +122,69 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         title: Text("Manage Categories"),
         backgroundColor: Color(0xFF2F70AF),
       ),
-      body: ListView.builder(
-        itemCount: categories.length,
-        itemBuilder: (context, index) {
-          final category = categories[index];
-          return ListTile(
-            title: Text(category['name']),
-            trailing: IconButton(
-              icon: Icon(Icons.delete, color: Colors.red),
-              onPressed: () {
-                deleteCategory(category['id']);
+      body: Column(
+        children: [
+          // Add Category Section
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _categoryNameController,
+                    decoration: InputDecoration(hintText: 'Enter category name'),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.add),
+                  onPressed: addCategory,
+                ),
+              ],
+            ),
+          ),
+          // Update Category Section
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _updateCategoryNameController,
+                    decoration: InputDecoration(hintText: 'Enter new category name'),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.edit),
+                  onPressed: updateCategory,
+                ),
+              ],
+            ),
+          ),
+          // Category List
+          Expanded(
+            child: ListView.builder(
+              itemCount: categories.length,
+              itemBuilder: (context, index) {
+                final category = categories[index];
+                return ListTile(
+                  title: Text(category['name']),
+                  onTap: () {
+                    setState(() {
+                      _selectedCategoryId = category['id'];
+                      _updateCategoryNameController.text = category['name'];
+                    });
+                  },
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      deleteCategory(category['id']);
+                    },
+                  ),
+                );
               },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }

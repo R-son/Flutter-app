@@ -211,6 +211,30 @@ app.post('/add-category', (req, res) => {
   );
 });
 
+app.put('/update-category/:id', (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+
+  db.run(
+    `UPDATE categories SET name = ? WHERE id = ?`,
+    [name, id],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update category' });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+      res.status(200).json({ message: 'Category updated successfully' });
+    }
+  );
+});
+
+
 app.delete('/delete-category/:id', (req, res) => {
   const { id } = req.params;
 
