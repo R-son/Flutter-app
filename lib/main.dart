@@ -75,15 +75,19 @@ void initState() {
   Future<void> fetchAllItems() async {
     try {
       final response = await http.get(Uri.parse('http://$addr:3000/items'));
+      // debugPrint("RESPONSE : ${response.body}");
       if (response.statusCode == 200 && response.body != null) {
         final items = json.decode(response.body);
+        // debugPrint("TEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEST");
         setState(() {
-          allItems = items..sort((a, b) => a['name'].compareTo(b['name']));
+          allItems = items
+            ..sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));  // Ensure both are strings
         });
       } else {
         throw Exception('Failed to load all items');
       }
     } catch (error) {
+      // debugPrint("ERROR STATEMENT : ${error}");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading all items: $error')),
       );
@@ -357,6 +361,7 @@ class _RateItemDialogState extends State<RateItemDialog> {
         widget.onRatingSubmitted(data['newRating']);
         Navigator.of(context).pop();
       } else {
+        debugPrint(response.body);
         throw Exception('Failed to submit rating');
       }
     } catch (error) {
