@@ -31,7 +31,6 @@ const port = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Configure Multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
@@ -109,21 +108,29 @@ app.get('/categories', (req, res) => {
 app.post('/update-rating', (req, res) => {
   const { id, userRating } = req.body;
 
+  // Validate input
   if (!id || typeof userRating !== 'number' || userRating < 0 || userRating > 5) {
     return res.status(400).json({ error: 'Invalid data' });
   }
 
+  // Fetch current rating and rating count
   db.get(`SELECT rating, rating_count FROM items WHERE id = ?`, [id], (err, row) => {
     if (err) {
+      console.error(err);
       return res.status(500).json({ error: 'Failed to fetch item rating' });
     }
     if (!row) {
       return res.status(404).json({ error: 'Item not found' });
     }
 
-    const newRatingCount = row.rating_count + 1;
-    const newRating = ((row.rating * row.rating_count) + userRating) / newRatingCount;
+    const currentRating = row.rating;
+    const currentRatingCount = row.rating_count;
 
+    // Calculate the new rating
+    const newRatingCount = currentRatingCount + 1;
+    const newRating = ((currentRating * currentRatingCount) + userRating) / newRatingCount;
+
+    // Update the item with the new rating and rating count
     db.run(
       `UPDATE items SET rating = ?, rating_count = ? WHERE id = ?`,
       [newRating, newRatingCount, id],
@@ -136,7 +143,6 @@ app.post('/update-rating', (req, res) => {
     );
   });
 });
-
 
 app.post('/add-item', upload.single('image'), (req, res) => {
   const { category, name, description, rating } = req.body;
@@ -205,6 +211,30 @@ app.post('/add-category', (req, res) => {
   );
 });
 
+app.put('/update-category/:id', (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  if (!name) {
+    return res.status(400).json({ error: 'Category name is required' });
+  }
+
+  db.run(
+    `UPDATE categories SET name = ? WHERE id = ?`,
+    [name, id],
+    function (err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to update category' });
+      }
+      if (this.changes === 0) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
+      res.status(200).json({ message: 'Category updated successfully' });
+    }
+  );
+});
+
+
 app.delete('/delete-category/:id', (req, res) => {
   const { id } = req.params;
 
@@ -232,23 +262,28 @@ app.delete('/delete-category/:id', (req, res) => {
 app.get('/items', (req, res) => {
   const { category } = req.query;
 
-  if (!category) {
-    return res.status(400).json({ error: 'Category query parameter is required' });
-  }
+  if (category) {
+    db.get('SELECT id FROM categories WHERE name = ?', [category], (err, row) => {
+      if (err || !row) {
+        return res.status(404).json({ error: 'Category not found' });
+      }
 
-  db.get('SELECT id FROM categories WHERE name = ?', [category], (err, row) => {
-    if (err || !row) {
-      return res.status(404).json({ error: 'Category not found' });
-    }
-
-    const categoryId = row.id;
-    db.all('SELECT * FROM items WHERE category_id = ?', [categoryId], (err, rows) => {
+      const categoryId = row.id;
+      db.all('SELECT * FROM items WHERE category_id = ?', [categoryId], (err, rows) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to fetch items' });
+        }
+        res.json(rows);
+      });
+    });
+  } else {
+    db.all('SELECT * FROM items', (err, rows) => {
       if (err) {
         return res.status(500).json({ error: 'Failed to fetch items' });
       }
       res.json(rows);
     });
-  });
+  }
 });
 
 

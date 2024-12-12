@@ -51,7 +51,6 @@ void initState() {
   fetchAllItems();
 }
 
-
   Future<void> fetchTopRatedItems() async {
     try {
       final response = await http.get(Uri.parse('http://$addr:3000/top-rated'));
@@ -76,15 +75,19 @@ void initState() {
   Future<void> fetchAllItems() async {
     try {
       final response = await http.get(Uri.parse('http://$addr:3000/items'));
+      // debugPrint("RESPONSE : ${response.body}");
       if (response.statusCode == 200 && response.body != null) {
         final items = json.decode(response.body);
+        // debugPrint("TEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEST");
         setState(() {
-          allItems = items..sort((a, b) => a['name'].compareTo(b['name']));
+          allItems = items
+            ..sort((a, b) => a['name'].toString().compareTo(b['name'].toString()));  // Ensure both are strings
         });
       } else {
         throw Exception('Failed to load all items');
       }
     } catch (error) {
+      // debugPrint("ERROR STATEMENT : ${error}");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error loading all items: $error')),
       );
@@ -153,7 +156,6 @@ void initState() {
               ),
             ),
 
-          // All Items Section (Displayed if No Search Results)
           if (searchResults.isEmpty && allItems.isNotEmpty)
             Expanded(
               child: ListView.builder(
@@ -178,21 +180,6 @@ void initState() {
                         ),
                       );
                     },
-                  );
-                },
-              ),
-            )
-
-          if (searchResults.isEmpty && allItems.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: allItems.length,
-                itemBuilder: (context, index) {
-                  final item = allItems[index];
-                  return ListTile(
-                    title: Text(item['name']),
-                    subtitle: Text(item['description']),
-                    trailing: Text("Rating: ${item['rating']}"),
                   );
                 },
               ),
@@ -337,6 +324,89 @@ class _SearchBarState extends State<SearchBar> {
         ),
         prefixIcon: Icon(Icons.search, color: Color(0xFF2F70AF)),
       ),
+    );
+  }
+}
+
+class RateItemDialog extends StatefulWidget {
+  final int itemId;
+  final String itemName;
+  final Function(double) onRatingSubmitted;
+
+  RateItemDialog({required this.itemId, required this.itemName, required this.onRatingSubmitted});
+
+  @override
+  _RateItemDialogState createState() => _RateItemDialogState();
+}
+
+class _RateItemDialogState extends State<RateItemDialog> {
+  double userRating = 0.0;
+
+  Future<void> submitRating() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://$addr:3000/update-rating'),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({
+          "id": widget.itemId,
+          "userRating": userRating,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Rating submitted successfully!')),
+        );
+        widget.onRatingSubmitted(data['newRating']);
+        Navigator.of(context).pop();
+      } else {
+        debugPrint(response.body);
+        throw Exception('Failed to submit rating');
+      }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error submitting rating: $error')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text("Rate ${widget.itemName}"),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text("Select your rating:"),
+          Slider(
+            value: userRating,
+            min: 0,
+            max: 5,
+            divisions: 10,
+            label: userRating.toString(),
+            onChanged: (value) => setState(() => userRating = value),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          child: Text("Cancel"),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TextButton(
+          child: Text("Submit"),
+          onPressed: () {
+            if (userRating > 0) {
+              submitRating();
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Please select a rating before submitting.')),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }
