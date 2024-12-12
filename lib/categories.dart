@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'edit.dart';
+import 'dart:core';
 
 const String addr = "192.168.1.58";
 
@@ -13,12 +14,14 @@ class CategoriesScreen extends StatefulWidget {
 class _CategoriesScreenState extends State<CategoriesScreen> {
   List<dynamic> categories = [];
   List<dynamic> items = [];
-  String? selectedCategory;
+  String? selectedCategory = "All Categories"; // Default to "All Categories"
+  String? selectedSortOption = 'Name (A-Z)'; // Default sort option
 
   @override
   void initState() {
     super.initState();
     fetchCategories();
+    fetchItems(selectedCategory); // Fetch all items by default
   }
 
   Future<void> fetchCategories() async {
@@ -42,27 +45,40 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Future<void> fetchItems(String? category) async {
-  try {
-    final response = category == "All Categories"
-        ? await http.get(Uri.parse('http://$addr:3000/items')) // Fetch all items
-        : await http.get(Uri.parse('http://$addr:3000/items?category=$category')); // Fetch items for a specific category
+    try {
+      final response = category == "All Categories"
+          ? await http.get(Uri.parse('http://$addr:3000/items')) // Fetch all items
+          : await http.get(Uri.parse('http://$addr:3000/items?category=$category')); // Fetch items for a specific category
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        setState(() {
+          items = json.decode(response.body);
+        });
+        sortItems(selectedSortOption); // Sort items after fetching
+      } else {
+        throw Exception('Failed to load items');
+      }
+    } catch (error) {
       setState(() {
-        items = json.decode(response.body);
+        items = [];
       });
-    } else {
-      throw Exception('Failed to load items');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading items: $error')),
+      );
     }
-  } catch (error) {
-    setState(() {
-      items = [];
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error loading items: $error')),
-    );
   }
-}
+
+  void sortItems(String? sortOption) {
+    if (sortOption == 'Name (A-Z)') {
+      items.sort((a, b) => a['name'].compareTo(b['name']));
+    } else if (sortOption == 'Name (Z-A)') {
+      items.sort((a, b) => b['name'].compareTo(a['name']));
+    } else if (sortOption == 'Rating (High to Low)') {
+      items.sort((a, b) => b['rating'].compareTo(a['rating']));
+    } else if (sortOption == 'Rating (Low to High)') {
+      items.sort((a, b) => a['rating'].compareTo(b['rating']));
+    }
+  }
 
   Future<void> deleteItem(int itemId) async {
     try {
@@ -72,7 +88,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           SnackBar(content: Text('Item deleted successfully')),
         );
         if (selectedCategory != null) {
-          fetchItems(selectedCategory!); // Refresh the item list
+          fetchItems(selectedCategory); // Refresh the item list
         }
       } else {
         throw Exception('Failed to delete item');
@@ -103,19 +119,50 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   DropdownButton<String>(
                     isExpanded: true,
                     value: selectedCategory,
-                    items: categories.map<DropdownMenuItem<String>>((category) {
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: "All Categories",
+                        child: Text("All Categories"),
+                      ),
+                      ...categories.map<DropdownMenuItem<String>>((category) {
+                        return DropdownMenuItem<String>(
+                          value: category['name'],
+                          child: Text(category['name']),
+                        );
+                      }).toList(),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        selectedCategory = value;
+                        fetchItems(value); // Fetch items based on selected category
+                      });
+                    },
+                    hint: Text("Choose a category"),
+                  ),
+
+                  SizedBox(height: 20),
+                  Text("Sort Items By:", style: TextStyle(fontSize: 18)),
+                  SizedBox(height: 10),
+                  DropdownButton<String>(
+                    isExpanded: true,
+                    value: selectedSortOption,
+                    items: [
+                      'Name (A-Z)',
+                      'Name (Z-A)',
+                      'Rating (High to Low)',
+                      'Rating (Low to High)',
+                    ].map<DropdownMenuItem<String>>((sortOption) {
                       return DropdownMenuItem<String>(
-                        value: category['name'],
-                        child: Text(category['name']),
+                        value: sortOption,
+                        child: Text(sortOption),
                       );
                     }).toList(),
                     onChanged: (value) {
                       setState(() {
-                        selectedCategory = value;
-                        if (value != null) fetchItems(value);
+                        selectedSortOption = value;
+                        sortItems(value); // Sort items based on selected sort option
                       });
                     },
-                    hint: Text("Choose a category"),
                   ),
                   SizedBox(height: 20),
                   if (items.isNotEmpty)
@@ -140,7 +187,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                       ),
                                     );
                                     if (updated == true && selectedCategory != null) {
-                                      fetchItems(selectedCategory!); // Refresh items after update
+                                      fetchItems(selectedCategory); // Refresh items after update
                                     }
                                   },
                                 ),
