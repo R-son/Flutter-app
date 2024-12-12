@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+<<<<<<< HEAD
 import 'edit.dart';
+=======
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+>>>>>>> main
 
-const String addr = "192.168.1.58";
+String? addr = dotenv.env['URL'];
 
 class CategoriesScreen extends StatefulWidget {
   @override
@@ -23,7 +27,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Future<void> fetchCategories() async {
     try {
-      final response = await http.get(Uri.parse('http://$addr:3000/categories'));
+      final response =
+          await http.get(Uri.parse('http://$addr:3000/categories'));
       if (response.statusCode == 200) {
         setState(() {
           categories = json.decode(response.body);
@@ -66,7 +71,12 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Future<void> deleteItem(int itemId) async {
     try {
+<<<<<<< HEAD
       final response = await http.delete(Uri.parse('http://$addr:3000/delete-item/$itemId'));
+=======
+      final response = await http
+          .get(Uri.parse('http://$addr:3000/items?category=$category'));
+>>>>>>> main
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Item deleted successfully')),
@@ -125,6 +135,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         itemBuilder: (context, index) {
                           final item = items[index];
                           return ListTile(
+<<<<<<< HEAD
                             title: Text(item['name']),
                             subtitle: Text("Rating: ${item['rating'].toStringAsFixed(1)}"),
                             trailing: Row(
@@ -175,12 +186,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                 ),
                               ],
                             ),
+=======
+                            title: Text(items[index]['name']),
+                            subtitle: Text(
+                                "Rating: ${items[index]['rating'].toStringAsFixed(1)}"),
+>>>>>>> main
                           );
                         },
                       ),
                     ),
                   if (items.isEmpty && selectedCategory != null)
-                    Center(child: Text("No items found for the selected category.")),
+                    Center(
+                        child:
+                            Text("No items found for the selected category.")),
                 ],
               ),
             ),

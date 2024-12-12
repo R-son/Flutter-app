@@ -3,11 +3,16 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'add.dart';
 import 'categories.dart';
+<<<<<<< HEAD
 import 'manage_categories.dart';
+=======
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+>>>>>>> main
 
-const String addr = "192.168.1.58";
+String? addr = dotenv.env['URL'];
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(MyApp());
 }
 
@@ -18,15 +23,21 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: Color(0xFF2F70AF),
+<<<<<<< HEAD
         colorScheme: ColorScheme.fromSwatch().copyWith(secondary: Color(0xFF806491)),
         scaffoldBackgroundColor: Color(0xFF806491),
+=======
+        colorScheme:
+            ColorScheme.fromSwatch().copyWith(secondary: Color(0xFF806491)),
+>>>>>>> main
         textTheme: TextTheme(
           displayLarge: TextStyle(
               fontFamily: 'Fira Sans',
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.black),
-          bodyLarge: TextStyle(fontFamily: 'Numans', fontSize: 16, color: Colors.black),
+          bodyLarge: TextStyle(
+              fontFamily: 'Numans', fontSize: 16, color: Colors.black),
         ),
       ),
       home: HomePage(),
@@ -115,11 +126,20 @@ void initState() {
           if (topItems.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
+<<<<<<< HEAD
               child: Text("Top 5 Items", style: Theme.of(context).textTheme.displayLarge),
             ),
           if (topItems.isNotEmpty)
             SizedBox(
               height: 250,
+=======
+              child: Text("Top 5 Items",
+                  style: Theme.of(context).textTheme.displayLarge),
+            ),
+          if (topItems.isNotEmpty)
+            SizedBox(
+              height: 250, // Fixed height for the PageView
+>>>>>>> main
               child: PageView.builder(
                 controller: PageController(viewportFraction: 0.8),
                 itemCount: topItems.length,
@@ -136,7 +156,12 @@ void initState() {
           if (searchResults.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16.0),
+<<<<<<< HEAD
               child: Text("Search Results", style: Theme.of(context).textTheme.displayLarge),
+=======
+              child: Text("Search Results",
+                  style: Theme.of(context).textTheme.displayLarge),
+>>>>>>> main
             ),
           if (searchResults.isNotEmpty)
             Expanded(
@@ -152,6 +177,7 @@ void initState() {
                 },
               ),
             ),
+<<<<<<< HEAD
 
           // All Items Section (Displayed if No Search Results)
           if (searchResults.isEmpty && allItems.isNotEmpty)
@@ -200,6 +226,12 @@ void initState() {
         ],
       ),
 
+=======
+          if (topItems.isEmpty && searchResults.isEmpty)
+            Expanded(child: Center(child: CircularProgressIndicator())),
+        ],
+      ),
+>>>>>>> main
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Color(0xFF806491),
         unselectedItemColor: Colors.grey,
@@ -207,18 +239,25 @@ void initState() {
         onTap: (index) {
           if (index == 1) {
             // Navigate to Categories
-            Navigator.push(context, MaterialPageRoute(builder: (context) => CategoriesScreen()));
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => CategoriesScreen()));
           } else if (index == 2) {
             // Navigate to Add Item
+<<<<<<< HEAD
             Navigator.push(context, MaterialPageRoute(builder: (context) => AddItemScreen()));
           } else if (index == 3) {
             // Navigate to Manage Categories
             Navigator.push(context, MaterialPageRoute(builder: (context) => ManageCategoriesScreen()));
+=======
+            Navigator.push(context,
+                MaterialPageRoute(builder: (context) => AddItemScreen()));
+>>>>>>> main
           }
         },
         items: [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.category), label: 'Categories'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.category), label: 'Categories'),
           BottomNavigationBarItem(icon: Icon(Icons.add), label: 'Add Item'),
           BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Manage Categories'),
         ],
@@ -307,7 +346,8 @@ class _SearchBarState extends State<SearchBar> {
     }
 
     try {
-      final response = await http.get(Uri.parse('http://$addr:3000/search?query=$query'));
+      final response =
+          await http.get(Uri.parse('http://$addr:3000/search?query=$query'));
       if (response.statusCode == 200) {
         final results = json.decode(response.body);
         widget.onResults(results);
@@ -339,4 +379,8 @@ class _SearchBarState extends State<SearchBar> {
       ),
     );
   }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> main
