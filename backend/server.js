@@ -31,7 +31,6 @@ const port = 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// Configure Multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
@@ -136,7 +135,6 @@ app.post('/update-rating', (req, res) => {
     );
   });
 });
-
 
 app.post('/add-item', upload.single('image'), (req, res) => {
   const { category, name, description, rating } = req.body;
